@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Учёт сотрудников — Система Управления</title>
+    <style>
+        :root {
+            --primary: #3498db;
+            --secondary: #2c3e50;
+            --success: #27ae60;
+            --danger: #e74c3c;
+            --bg: #f4f7f6;
+        }
+
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background: var(--bg); color: #333; }
+        
+        .header { background: var(--secondary); color: white; padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        
+        .container { max-width: 1100px; margin: 2rem auto; padding: 0 1rem; }
+
+        .card { background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 2rem; }
+
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-bottom: 1.5rem; }
+        
+        label { display: block; margin-bottom: 0.5rem; font-weight: 600; font-size: 0.9rem; color: #666; }
+        input, select { width: 100%; padding: 0.8rem; border: 1px solid #ddd; border-radius: 8px; font-size: 1rem; box-sizing: border-box; }
+        input:focus { border-color: var(--primary); outline: none; box-shadow: 0 0 0 2px rgba(52,152,219,0.2); }
+
+        .btn { padding: 0.8rem 1.5rem; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; transition: 0.2s; font-size: 14px; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-success { background: var(--success); color: white; }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-secondary { background: #95a5a6; color: white; }
+        .btn:hover { opacity: 0.9; transform: translateY(-1px); }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 1rem; background: white; }
+        th { text-align: left; background: #f8f9fa; padding: 1rem; color: #888; font-size: 0.8rem; text-transform: uppercase; border-bottom: 2px solid #eee; }
+        td { padding: 1rem; border-bottom: 1px solid #eee; }
+        
+        .btn-edit { background: #f39c12; color: white; padding: 5px 10px; border-radius: 4px; border: none; cursor: pointer; margin-right: 5px; }
+        .btn-delete { background: var(--danger); color: white; padding: 5px 10px; border-radius: 4px; border: none; cursor: pointer; }
+
+        .filter-section {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            align-items: flex-end;
+            background: #ebf0f2;
+            padding: 1rem;
+            border-radius: 8px;
+        }
+
+        .filter-item { flex: 1; }
+
+        /* Управление видимостью формы */
+        #add-employee-form { display: none; }
+
+        /* Стили для ограничения прав доступа */
+        body.user-mode .btn-add-container,
+        body.user-mode .btn-edit,
+        body.user-mode .btn-delete,
+        body.user-mode #add-employee-form,
+        body.user-mode th:last-child, 
+        body.user-mode td:last-child {
+            display: none !important;
+        }
+    </style>
+</head>
+<body class="admin-mode">
+
+    <header class="header">
+        <div style="font-size: 1.5rem; font-weight: bold;">StaffManager PRO</div>
+        <div class="role-selector">
+            <span style="font-size: 0.9rem; margin-right: 10px;">Режим доступа:</span>
+            <select id="current-role" style="width: auto; padding: 5px;" onchange="updateAccessMode()">
+                <option value="admin">Администратор</option>
+                <option value="user">Пользователь</option>
+            </select>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- Кнопка открытия формы -->
+        <div style="margin-bottom: 20px;" class="btn-add-container">
+            <button id="btn-open-form" class="btn btn-primary" onclick="openAddForm()"> + Добавить нового сотрудника</button>
+        </div>
+
+        <!-- Контейнер формы добавления/редактирования -->
+        <div class="card" id="add-employee-form">
+            <h2 id="form-title">Добавить сотрудника</h2>
+            <form id="employee-form">
+                <div class="form-grid">
+                    <div>
+                        <label>Фамилия *</label>
+                        <input type="text" id="last_name" placeholder="Введите фамилию" required>
+                    </div>
+                    <div>
+                        <label>Имя</label>
+                        <input type="text" id="first_name" placeholder="Введите имя">
+                    </div>
+                    <div>
+                        <label>Email</label>
+                        <input type="email" id="email" placeholder="example@mail.ru">
+                    </div>
+                </div>
+                <div class="form-grid">
+                    <div>
+                        <label>Отдел</label>
+                        <select id="department_id">
+                            <option value="">Загрузка отделов...</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Должность</label>
+                        <select id="position_id">
+                            <option value="">Загрузка должностей...</option>
+                        </select>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 1rem;">
+                    <button type="submit" class="btn btn-success">Сохранить</button>
+                    <button type="button" class="btn btn-secondary" onclick="cancelEdit()">Отмена</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Блок фильтрации -->
+        <div class="card" style="padding: 1.5rem;">
+            <h3 style="margin-top: 0; margin-bottom: 1rem; font-size: 1rem; color: var(--secondary);">Поиск и фильтрация</h3>
+            <div class="filter-section">
+                <div class="filter-item">
+                    <label>По отделу:</label>
+                    <select id="filter-dept" onchange="filterEmployees()">
+                        <option value="">Все отделы</option>
+                    </select>
+                </div>
+                <div class="filter-item">
+                    <label>По должности:</label>
+                    <select id="filter-pos" onchange="filterEmployees()">
+                        <option value="">Все должности</option>
+                    </select>
+                </div>
+                <button class="btn btn-secondary" onclick="resetFilters()" style="height: 42px;">Сбросить</button>
+            </div>
+        </div>
+
+        <!-- Таблица данных -->
+        <div class="card">
+            <h2 style="margin-top:0;">Список сотрудников</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Фамилия</th>
+                        <th>Имя</th>
+                        <th>Отдел</th>
+                        <th>Должность</th>
+                        <th>Email</th>
+                        <th class="actions-column">Действия</th>
+                    </tr>
+                </thead>
+                <tbody id="employees-list">
+                    <tr>
+                        <td colspan="7" style="text-align:center">Загрузка данных...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        // Функция переключения режимов (Админ/Пользователь)
+        function updateAccessMode() {
+            const role = document.getElementById('current-role').value;
+            if (role === 'user') {
+                document.body.classList.add('user-mode');
+                document.body.classList.remove('admin-mode');
+            } else {
+                document.body.classList.add('admin-mode');
+                document.body.classList.remove('user-mode');
+            }
+        }
+
+        // Локальная фильтрация строк таблицы
+        function filterEmployees() {
+            const deptValue = document.getElementById('filter-dept').value;
+            const posValue = document.getElementById('filter-pos').value;
+            const rows = document.querySelectorAll('#employees-list tr');
+
+            rows.forEach(row => {
+                // Пропускаем строку "не найдено" или "загрузка"
+                if (row.cells.length < 5) return;
+
+                const deptText = row.cells[3].innerText;
+                const posText = row.cells[4].innerText;
+
+                // Получаем название из option для точного сравнения (или сверяем по тексту)
+                const selectedDeptText = document.querySelector(`#filter-dept option[value="${deptValue}"]`)?.text || "";
+                const selectedPosText = document.querySelector(`#filter-pos option[value="${posValue}"]`)?.text || "";
+
+                const matchDept = !deptValue || deptText === selectedDeptText;
+                const matchPos = !posValue || posText === selectedPosText;
+
+                row.style.display = (matchDept && matchPos) ? "" : "none";
+            });
+        }
+
+        function resetFilters() {
+            document.getElementById('filter-dept').value = "";
+            document.getElementById('filter-pos').value = "";
+            filterEmployees();
+        }
+    </script>
+    
+    <!-- Подключение логики -->
+    <script src="app.js"></script>
+</body>
+</html>
